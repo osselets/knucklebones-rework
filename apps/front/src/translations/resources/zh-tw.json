@@ -1,0 +1,81 @@
+{
+  "language": "正體中文（臺灣）",
+  "home": {
+    "play": {
+      "friend": "與他人對戰",
+      "ai": "與 AI 對戰"
+    },
+    "footer": "《進擊羔羊傳說》中的原版 Knucklebones 遊戲由 Massive Monster 創作。\n這是一個粉絲網站，並非 Massive Monster 的官方實現。\n您可以在 <0>《進擊羔羊傳說》</0> 網站上找到原版遊戲。"
+  },
+  "guide": {
+    "label": "遊戲說明",
+    "goal": "每回合，您會獲得一個隨機骰子放置在一列中。\n目標是在遊戲結束時獲得比對手更多的分數，當其中一個棋盤滿了時遊戲結束。",
+    "rule1": "在同一列中堆疊相同的骰子可以獲得更多分數。",
+    "rule2": "當在匹配的列中放置一個骰子時，會移除所有對手相同數值的骰子。"
+  },
+  "game-settings": {
+    "title": "遊戲設定",
+    "difficulty": {
+      "label": "AI 難度",
+      "easy": "簡單",
+      "medium": "中等",
+      "hard": "困難"
+    },
+    "games": {
+      "label": "回合數",
+      "indefinite": "自由遊戲",
+      "1": "一局定勝負",
+      "3": "三局兩勝",
+      "5": "五局三勝"
+    },
+    "start": "開始遊戲"
+  },
+  "menu": {
+    "style": {
+      "system": "系統主題",
+      "dark": "深色主題",
+      "light": "淺色主題"
+    },
+    "share": {
+      "label": "分享遊戲",
+      "title": "掃描 QR 碼與其他玩家分享房間",
+      "copy": "複製連結",
+      "copied": "已複製！"
+    },
+    "logs": {
+      "label": "日誌",
+      "title": "日誌"
+    },
+    "history": {
+      "label": "第 {{current}} 局，共 {{boType}} 局",
+      "title": "歷史",
+      "empty-round": "第一局尚未完成！",
+      "tie": "平局！",
+      "you-win": "你贏了！",
+      "opponent-win": "{{player}} 贏了！",
+      "you-lead": "你領先了！",
+      "opponent-lead": "{{player}} 領先了！"
+    }
+  },
+  "game": {
+    "total": "總計",
+    "you": "你",
+    "ai": "AI",
+    "rematch": "再來一局",
+    "continue": "繼續遊戲",
+    "go-free-play": "進入自由遊戲",
+    "waiting-rematch": "等待 {{player}}...",
+    "opponent-rematch": "{{player}} 想要重賽！",
+    "round": {
+      "tie": "平局！這回合沒有人贏！",
+      "you-win": "你以 {{points}} 分贏了這回合！",
+      "opponent-win": "{{player}} 以 {{points}} 分贏了這回合！"
+    },
+    "game": {
+      "tie": "平局！沒有人贏！",
+      "you-win": "你以 {{points}} 分贏了遊戲！",
+      "opponent-win": "{{player}} 以 {{points}} 分贏了遊戲！"
+    }
+  },
+  "loading": "等待遊戲開始"
+}

@@ -1,5 +1,6 @@
 import en from './en.json'
 import fr from './fr.json'
+import zh_tw from './zh-tw.json'
 
 export const resources = {
   en: {
@@ -7,12 +8,15 @@ export const resources = {
   },
   fr: {
     translation: fr
+  },
+  'zh-TW': {
+    translation: zh_tw
   }
 } as const
 
 export const supportedLanguages = Object.entries(resources).map(
   ([lang, resource]) => ({
-    value: lang,
+    value: lang.toLocaleLowerCase(),
     label: resource.translation.language
   })
 )
