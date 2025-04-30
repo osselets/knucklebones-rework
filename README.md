@@ -35,3 +35,16 @@ The `packages` directory contains code that's shared between the React applicati
 ## Legal disclaimer
 
 The original Knucklebones game in Cult of the Lamb was created by Massive Monster. This is a fan-site and not an official implementation by Massive Monster. You can find the original game on the [Cult of the Lamb](https://www.cultofthelamb.com/) website.
+
+## db management
+
+```sh
+# generate auth-schema, only when updating better-auth configuration
+pnpm dlx @better-auth/cli@latest generate --output src/lib/server/schemas/auth.ts
+
+# generate SQL migrations
+pnpm drizzle-kit generate
+
+# run migrations
+pnpm drizzle-kit migrate
+```

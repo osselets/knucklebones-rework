@@ -1,23 +1,14 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
-
 node_modules
-dist
-dist-ssr
-*.local
-
-.idea
-.DS_Store
+src/routeTree.gen.ts
+.env
 
 # Local environment variables for CloudFlare workers
 .dev.vars
 .turbo
 .env.local.development
 *.wrangler
-.env
+*.timestamp*.js
+.output
+.vinxi
+app.config.timestamp*

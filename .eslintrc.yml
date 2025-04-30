@@ -1,3 +1,11 @@
+# TODO:
+# update eslint to flat config
+# update all plugins
+# tweak some TS config (void promises, no-throw-literal)
+# add https://orm.drizzle.team/docs/eslint-plugin
+# add https://tanstack.com/router/latest/docs/eslint/eslint-plugin-router
+# add https://tanstack.com/query/latest/docs/eslint/eslint-plugin-query#eslint-plugin-query
+
 env:
   browser: true
   es2021: true
@@ -22,9 +30,10 @@ settings:
     typescript: true
   import/external-module-folders:
     - 'node_modules'
-    - 'apps/front/node_modules'
-    - 'apps/worker/node_modules'
-  import/internal-regex: ^@knucklebones/
+  import/parsers:
+    '@typescript-eslint/parser':
+      - '.ts'
+      - '.tsx'
 rules:
   space-before-function-paren: off
   react/no-unescaped-entities: off

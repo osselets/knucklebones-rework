@@ -1,0 +1,16 @@
+{
+  // re-grab matt pocock tsconfig cheat sheet
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  }
+  // "include": ["src", "@types", "public/theme.js"]
+}
