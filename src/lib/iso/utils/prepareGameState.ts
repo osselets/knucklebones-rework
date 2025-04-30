@@ -27,8 +27,6 @@ export function prepareGameState(
   const playerOne = gameState.players[playerIndex]
   const playerTwo = gameState.players[playerIndex === 0 ? 1 : 0]
 
-  console.log({ playerOne, playerTwo })
-
   return {
     ...gameState,
     playerOne,

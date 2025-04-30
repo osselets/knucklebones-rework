@@ -42,7 +42,6 @@ export function useGame() {
   useSSE({
     url: `/api/game/${id}/sse`,
     onMessage(data) {
-      console.log('message', data)
       const gameState = preparedGameStateType(JSON.parse(data))
       if (gameState instanceof type.errors) {
         // feedback error to user

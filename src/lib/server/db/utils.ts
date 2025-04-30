@@ -75,5 +75,6 @@ export function jsonError(error: ErrorResponse) {
 // or
 // const value = unwrapOrThrow(result)
 export function throwError(error: ErrorResponse): never {
+  console.error(error)
   throw new Error(error.message, error as any)
 }

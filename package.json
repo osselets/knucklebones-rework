@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vinxi dev",
     "build": "vinxi build",
-    "start": "vinxi start",
+    "start": "export $(grep -v '^#' .env | xargs) && pnpm vinxi start",
     "lint": "prettier \"src/**/*.ts?(x)\" --check && eslint \"src/**/*.ts?(x)\"",
     "lint:fix": "prettier \"src/**/*.ts?(x)\" --write && eslint \"src/**/*.ts?(x)\" --fix",
     "clean": "git add . && git clean -dfxe .env",

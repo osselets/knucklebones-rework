@@ -2,13 +2,13 @@ pnpm-debug.log*
 node_modules
 src/routeTree.gen.ts
 .env
+dist
+.output
+.vinxi
+app.config.timestamp*
 
 # Local environment variables for CloudFlare workers
 .dev.vars
 .turbo
 .env.local.development
 *.wrangler
-*.timestamp*.js
-.output
-.vinxi
-app.config.timestamp*

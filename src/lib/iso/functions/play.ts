@@ -40,7 +40,6 @@ export const playFn = createServerFn({ method: 'POST' })
 
     await gameState.play(userId, column)
 
-    console.log('allo ???', gameState.isAgainstAi, gameState.hasEnded)
     if (gameState.isAgainstAi && !gameState.hasEnded) {
       delayPlay(async () => {
         // wonder if this should be a method in GameState, probably not necessary
@@ -52,7 +51,6 @@ export const playFn = createServerFn({ method: 'POST' })
         const result = await syncGameState(gameState.toJson)
         // throwing stop the server, not good
         if (result.isErr()) {
-          console.log(result.error)
           throwError(result.error)
         }
       })
@@ -60,7 +58,6 @@ export const playFn = createServerFn({ method: 'POST' })
 
     const result = await syncGameState(gameState.toJson)
     if (result.isErr()) {
-      console.log(result.error)
       throwError(result.error)
     }
   })

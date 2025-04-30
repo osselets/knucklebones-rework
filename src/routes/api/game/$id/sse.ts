@@ -32,7 +32,6 @@ export const APIRoute = createAPIFileRoute('/api/game/$id/sse')({
 
         // Subscribe to session-specific events
         const handleSessionEvent = (gameState: KbGameState) => {
-          console.log('send', userId)
           send(JSON.stringify(prepareGameState(gameState, userId)))
         }
         eventBus.subscribe(sessionId, handleSessionEvent)
@@ -66,7 +65,6 @@ export const APIRoute = createAPIFileRoute('/api/game/$id/sse')({
         message: gameState.summary
       })
     }
-    console.log('valid', gameState)
 
     eventBus.publish(sessionId, gameState)
     return new Response(null, { status: 204, statusText: 'OK' })

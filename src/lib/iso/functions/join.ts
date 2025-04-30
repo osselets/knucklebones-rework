@@ -31,7 +31,6 @@ export const joinGameFn = createServerFn({
     await gameState.joinIfPossible(userId)
     const result = await syncGameState(gameState.toJson)
     if (result.isErr()) {
-      console.log(result.error)
       throwError(result.error)
     }
   })
