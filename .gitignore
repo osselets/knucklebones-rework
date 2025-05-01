@@ -10,5 +10,4 @@ app.config.timestamp*
 # Local environment variables for CloudFlare workers
 .dev.vars
 .turbo
-.env.local.development
 *.wrangler
