@@ -4,8 +4,8 @@ import { type KbGameState } from '../iso/types/kbGame'
 import { api } from './api'
 
 // could also rename /sse into /sync
-export async function syncGameState(gameState: KbGameState) {
-  return await ResultAsync.fromPromise(
+export function syncGameState(gameState: KbGameState) {
+  return ResultAsync.fromPromise(
     api(`/game/${gameState.id}/sse`, {
       method: 'POST',
       body: gameState

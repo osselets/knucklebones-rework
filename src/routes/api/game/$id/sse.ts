@@ -27,6 +27,7 @@ export const APIRoute = createAPIFileRoute('/api/game/$id/sse')({
         const eventBus = GameStateEventBus.getInstance()
         const encoder = new TextEncoder()
         const send = (message: string) => {
+          console.log('sending sse')
           controller.enqueue(encoder.encode(`data: ${message}\n\n`))
         }
 
@@ -39,6 +40,12 @@ export const APIRoute = createAPIFileRoute('/api/game/$id/sse')({
         // Handle client disconnection
         event.node.req.on('close', () => {
           eventBus.unsubscribe(sessionId, handleSessionEvent)
+          controller.close()
+        })
+
+        request.signal.addEventListener('abort', () => {
+          eventBus.unsubscribe(sessionId, handleSessionEvent)
+          controller.close()
         })
       }
     })

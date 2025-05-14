@@ -39,8 +39,9 @@ The original Knucklebones game in Cult of the Lamb was created by Massive Monste
 ## db management
 
 ```sh
+# based on this https://www.better-auth.com/docs/adapters/drizzle#schema-generation--migration
 # generate auth-schema, only when updating better-auth configuration
-pnpm dlx @better-auth/cli@latest generate --output src/lib/server/schemas/auth.ts
+pnpm gen-auth-schema
 
 # generate SQL migrations
 pnpm drizzle-kit generate
@@ -48,3 +49,20 @@ pnpm drizzle-kit generate
 # run migrations
 pnpm drizzle-kit migrate
 ```
+
+## cloudflare
+
+### pages dev
+
+- should generate the .dev.vars automatically
+- start command should be wrangler pages dev --port 3000
+
+## things to add later
+
+- vite-env-only
+- @t3-oss/env-core
+
+## où j'en suis
+
+Je setup l'authentification entre Better Auth et Convex. Pour ça il faut que le client récupère un JWT et l'expose à Convex : https://docs.convex.dev/auth/advanced/custom-auth#integrating-a-new-identity-provider
+C'est ok avec la méthode `authClient.token()`, mais ça en génère un nouveau à chaque fois, car ils sont pas stockés en BDD. Je sais pas si c'est une bonne ou une mauvaise chose, si je dois les stocker dans le local storage moi-même, et pourquoi il n'y a pas de refresh token à utiliser pour générer un nouveau JWT. Je sais pas trop quel processus ça suit. Peut-être avec le plugin bearer ça marcherait mieux ? Après techniquement, ça conviendrait à Convex, sur le papier. Mais ça a pas l'air opti.

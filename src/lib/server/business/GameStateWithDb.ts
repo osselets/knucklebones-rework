@@ -1,18 +1,20 @@
 import { eq, sql } from 'drizzle-orm'
 import { getTotalScore } from '~/common'
 import { GameState } from '~/lib/iso/business/GameState'
-import { shouldNeverHappen } from '~/lib/iso/utils/shouldNeverHappen'
 import { db, operations } from '../db'
 import { kbGame, kbGamePlayer } from '../schemas'
+import { shouldNeverHappenInServer } from '../utils/shouldNeverHappen'
 
 // TODO: use neverthrow
 export class GameStateWithDb extends GameState {
+  // constructor()
+
   public async play(userId: string, column: number) {
     super.play(userId, column)
 
     const { player, opponent } = this.getPlayers(userId)
     if (opponent === undefined) {
-      shouldNeverHappen(
+      shouldNeverHappenInServer(
         'There should always be an opponent while game is ongoing'
       )
     }

@@ -1,8 +1,10 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { useServerFn } from '@tanstack/react-start'
+import { useConvexMutation } from '@convex-dev/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { type Difficulty, type PlayerType } from '~/common'
-import { createGameFn } from '~/lib/iso/functions/createGame'
+import { api } from '~/convex/api'
 import { Button } from '../Button'
 import { Modal, type ModalProps } from '../Modal'
 import { type Option, ToggleGroup } from '../ToggleGroup'
@@ -54,7 +56,21 @@ export function GameSettingsModal({
   const [difficulty, setDifficulty] = React.useState<Difficulty>('medium')
   const [boType, setBoType] = React.useState<StringBoType>('free_play')
   const { t } = useTranslation()
-  const createGame = useServerFn(createGameFn)
+
+  const navigate = useNavigate()
+  const { mutate } = useMutation({
+    mutationFn: useConvexMutation(api.kbGame.createGame),
+    async onSuccess(gameId) {
+      await navigate({
+        to: `/game/$id`,
+        params: { id: gameId as string }
+      })
+    },
+    onError(error) {
+      console.error('Error creating game:', error)
+      // Handle the error appropriately, e.g., show an error message to the user.
+    }
+  })
 
   return (
     <Modal {...modalProps}>
@@ -77,11 +93,9 @@ export function GameSettingsModal({
         <Button
           size='medium'
           onClick={() => {
-            void createGame({
-              data: {
-                boType,
-                difficulty: playerType === 'ai' ? difficulty : undefined
-              }
+            mutate({
+              boType,
+              difficulty: playerType === 'ai' ? difficulty : null
             })
           }}
         >

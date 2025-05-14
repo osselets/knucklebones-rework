@@ -1,11 +1,24 @@
+import { type PropsWithChildren } from 'react'
+import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { ConvexQueryClient } from '@convex-dev/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { routerWithQueryClient } from '@tanstack/react-router-with-query'
 import { routeTree } from './routeTree.gen'
 
 export function createRouter() {
-  // can add auth session here
-  const queryClient = new QueryClient()
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL!
+  const convexClient = new ConvexReactClient(CONVEX_URL)
+  const convexQueryClient = new ConvexQueryClient(convexClient)
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        queryKeyHashFn: convexQueryClient.hashFn(),
+        queryFn: convexQueryClient.queryFn()
+      }
+    }
+  })
+  convexQueryClient.connect(queryClient)
 
   // `routerWithQueryClient` is used to provide some default and optimized configs
   // but we can make it work without it
@@ -14,7 +27,10 @@ export function createRouter() {
     createTanStackRouter({
       routeTree,
       scrollRestoration: true,
-      context: { queryClient }
+      context: { queryClient, convexQueryClient, convexClient },
+      Wrap({ children }: PropsWithChildren) {
+        return <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+      }
     }),
     queryClient
   )

@@ -11,3 +11,6 @@ app.config.timestamp*
 .dev.vars
 .turbo
 *.wrangler
+worker-configuration.d.ts
+
+.env.local

@@ -1,4 +1,4 @@
-import { useGame } from '~/hooks/useGame'
+import { useGameState } from '~/hooks/useGame'
 import { HowToPlayModal } from './HowToPlay'
 import { Loading } from './Loading'
 import { PlayerOneBoard, PlayerTwoBoard } from './PlayerBoard'
@@ -6,10 +6,10 @@ import { QRCodeModal } from './QRCode'
 import { SideBarActions } from './SideBar'
 
 export function Game() {
-  const game = useGame()
+  const gameState = useGameState()
   // const isOnMobile = useIsOnMobile()
 
-  if (game.status === 'waiting') {
+  if (gameState === null || !gameState.isOngoing) {
     return <Loading />
   }
 

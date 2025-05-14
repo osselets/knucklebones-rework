@@ -1,3 +1,4 @@
+import { getEvent } from '@tanstack/react-start/server'
 import { type } from 'arktype'
 import { createServerFn } from '@tanstack/react-start'
 import { getRandomIntInclusive } from '~/common'
@@ -32,6 +33,8 @@ export const playFn = createServerFn({ method: 'POST' })
     return play
   })
   .handler(async ({ data, context }) => {
+    // const event = getEvent()
+    // const ctx = event.context.cloudflare.context as ExecutionContext
     const { column, gameId } = data
     const userId = context.session.session.userId
 
@@ -40,24 +43,28 @@ export const playFn = createServerFn({ method: 'POST' })
 
     await gameState.play(userId, column)
 
+    const result = await syncGameState(gameState.toJson)
+
+    if (result.isErr()) {
+      throwError(result.error)
+    }
+
     if (gameState.isAgainstAi && !gameState.hasEnded) {
-      delayPlay(async () => {
+      const promise = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100))
         // wonder if this should be a method in GameState, probably not necessary
         // though, one thing that could be useful is when I'll have multiple AIs
         // to play, reaching for their ids
-        const ai = new Ai(gameState, process.env.AI_1_USER_ID!)
+        const ai = new Ai(gameState, process.env.AI_1_USER_ID)
         const move = ai.suggestNextPlay()
-        await gameState.play(process.env.AI_1_USER_ID!, move.column)
+        await gameState.play(process.env.AI_1_USER_ID, move.column)
         const result = await syncGameState(gameState.toJson)
         // throwing stop the server, not good
         if (result.isErr()) {
           throwError(result.error)
         }
-      })
-    }
-
-    const result = await syncGameState(gameState.toJson)
-    if (result.isErr()) {
-      throwError(result.error)
+      }
+      await promise()
+      // ctx.waitUntil(promise())
     }
   })

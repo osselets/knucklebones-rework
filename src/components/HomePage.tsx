@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConvexAuth } from 'convex/react'
 import { Link } from '@tanstack/react-router'
 import { type PlayerType } from '~/common'
 import { authClient } from '~/lib/client/auth'
@@ -12,6 +13,8 @@ export function HomePage() {
   const [playerType, setPlayerType] = React.useState<PlayerType>()
   const [isEditingGameSettings, setEditingGameSettings] = React.useState(false)
   const { t } = useTranslation()
+  const { isAuthenticated, isLoading } = useConvexAuth()
+  console.log('convex', { isAuthenticated, isLoading })
 
   function openGameSettings(playerType: PlayerType) {
     setEditingGameSettings(true)

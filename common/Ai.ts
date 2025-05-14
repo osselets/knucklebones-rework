@@ -1,13 +1,7 @@
-import {
-  countDiceInColumn,
-  getColumnScore,
-  getMaxBy,
-  getMinBy,
-  sortBy
-} from '~/common'
-import { shouldNeverHappenInServer } from '~/lib/server/utils/shouldNeverHappen'
-import { type KbGameState, type KbGamePlayer } from '../types/kbGame'
-import { type GameState } from './GameState'
+import { type Game, type GameState, type Player } from './GameState'
+import { getMaxBy, getMinBy, sortBy } from './array'
+import { countDiceInColumn } from './count'
+import { getColumnScore } from './score'
 
 interface WeightedPlay {
   gain: number
@@ -19,16 +13,21 @@ interface WeightedPlay {
 type Strategy = 'defensive' | 'offensive'
 
 export class Ai {
-  private readonly gameState: KbGameState
-  private readonly ai: KbGamePlayer
-  private readonly human: KbGamePlayer
+  private readonly game: Game
+  private readonly ai: Player
+  private readonly human: Player
 
-  constructor(gameState: GameState, aiUserId: string) {
-    const { player: ai, opponent: human } = gameState.getPlayers(aiUserId)
-    // meh?
-    this.gameState = gameState.toJson
-    this.ai = ai
-    this.human = human
+  constructor(gameState: GameState) {
+    if (
+      gameState.currentPlayer === undefined ||
+      gameState.opponent === undefined
+    ) {
+      throw new Error('eh cest bon')
+    }
+
+    this.game = gameState.toJson.game
+    this.ai = gameState.currentPlayer
+    this.human = gameState.opponent
   }
 
   public suggestNextPlay() {
@@ -51,7 +50,7 @@ export class Ai {
 
     let recommendedPlay: WeightedPlay
 
-    switch (this.gameState.difficulty) {
+    switch (this.game.difficulty) {
       case 'easy':
         recommendedPlay = easy
         break
@@ -64,7 +63,10 @@ export class Ai {
       default:
         // well, if coded like this, we could have the AI running completely client side
         // so this would have to change
-        shouldNeverHappenInServer(
+        // shouldNeverHappenInServer(
+        //   'GameStateWithAi should always be used for games with a set difficulty'
+        // )
+        throw new Error(
           'GameStateWithAi should always be used for games with a set difficulty'
         )
     }
@@ -111,11 +113,15 @@ export class Ai {
       return 0
     }
 
+    if (this.ai.dieToPlay === null) {
+      throw new Error('AI should have a die to play when calling this method')
+    }
+
     const aiNewColumn = aiColumn.concat(
-      this.ai.dieToPlay ??
-        shouldNeverHappenInServer(
-          'AI should have a die to play when calling this method'
-        )
+      this.ai.dieToPlay
+      // shouldNeverHappenInServer(
+      //   'AI should have a die to play when calling this method'
+      // )
     )
 
     const aiScore = getColumnScore(aiColumn)

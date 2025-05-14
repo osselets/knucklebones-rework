@@ -39,7 +39,7 @@ export class GameState implements IGameState {
     outcome,
     rematchVote,
     winnerId,
-    boType = 'indefinite',
+    boType = 'free_play',
     logs = [],
     spectators = [],
     outcomeHistory = []
@@ -82,7 +82,7 @@ export class GameState implements IGameState {
       this.spectators = previousGameState.spectators
       this.boType = previousGameState?.boType
 
-      if (this.hasBoEnded() && this.boType !== 'indefinite') {
+      if (this.hasBoEnded() && this.boType !== 'free_play') {
         this.outcomeHistory = []
       }
     }
@@ -183,7 +183,7 @@ export class GameState implements IGameState {
   }
 
   private hasBoEnded() {
-    if (this.boType === 'indefinite') {
+    if (this.boType === 'free_play') {
       return true
     }
     const majority = Math.ceil(this.boType / 2)

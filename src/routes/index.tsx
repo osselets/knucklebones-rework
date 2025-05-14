@@ -3,7 +3,11 @@ import { AppLayout } from '~/components/AppLayout'
 import { HomePage } from '~/components/HomePage'
 
 export const Route = createFileRoute('/')({
-  component: Home
+  component: Home,
+  // loader: async ({ context }) => {
+  //   await context.queryClient.ensureQueryData(tokenQueryOptions)
+  // },
+  ssr: false
 })
 
 function Home() {

@@ -34,6 +34,7 @@ export const kbGame = pgTable('kb_game', {
   ),
   difficulty: difficultyEnum('difficulty'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // will be useful to sort games by most recent ones
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 })
 
@@ -59,6 +60,7 @@ export const kbGamePlayer = pgTable(
     // order: integer("order").notNull().default(0),
     // not sure these are relevant for this table
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    // will be useful to sort games by most recent moves
     updatedAt: timestamp('updated_at').notNull().defaultNow()
   },
   (table) => [primaryKey({ columns: [table.userId, table.gameId] })]

@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { ConvexProviderWithAuth, type ConvexReactClient } from 'convex/react'
+import { type ConvexQueryClient } from '@convex-dev/react-query'
 import { type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
@@ -9,10 +11,13 @@ import {
   type ErrorComponentProps
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { tokenQueryOptions, useAuthToken } from '~/lib/client/useAuthToken'
 import appCss from '../index.css?url'
 
 interface Context {
   queryClient: QueryClient
+  convexClient: ConvexReactClient
+  convexQueryClient: ConvexQueryClient
 }
 
 export const Route = createRootRouteWithContext<Context>()({
@@ -98,7 +103,20 @@ export const Route = createRootRouteWithContext<Context>()({
     scripts: [{ src: '/public/theme.js' }]
   }),
   component: RootComponent,
-  errorComponent: ErrorComponent
+  errorComponent: ErrorComponent,
+  async beforeLoad({ context }) {
+    // or getToken directly?
+    const token = await context.queryClient.ensureQueryData(tokenQueryOptions)
+    if (token !== '') {
+      console.log('server', { token })
+      // why not this? context.convexClient.setAuth
+
+      // During SSR only (the only time serverHttpClient exists),
+      // set the Clerk auth token to make HTTP queries with.
+      // https://docs.convex.dev/client/react/tanstack-start/tanstack-start-with-clerk
+      context.convexQueryClient.serverHttpClient?.setAuth(token)
+    }
+  }
 })
 
 function ErrorComponent(props: ErrorComponentProps) {
@@ -113,17 +131,17 @@ function ErrorComponent(props: ErrorComponentProps) {
 }
 
 function RootComponent() {
+  const { convexClient } = Route.useRouteContext()
   return (
-    <RootDocument>
-      <>
-        {/* should use AppLayout here but cannot because of `useMedia` */}
+    <ConvexProviderWithAuth useAuth={useAuthToken} client={convexClient}>
+      <RootDocument>
         {/* <AppLayout> */}
         <Outlet />
         {/* </AppLayout> */}
         <TanStackRouterDevtools />
         <ReactQueryDevtools />
-      </>
-    </RootDocument>
+      </RootDocument>
+    </ConvexProviderWithAuth>
   )
 }
 

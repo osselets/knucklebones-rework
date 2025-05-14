@@ -1,7 +1,7 @@
 import { getRandomDice } from '~/common'
+import { shouldNeverHappenInServer } from '~/lib/server/utils/shouldNeverHappen'
 import { type KbGameState } from '../types/kbGame'
 import { prepareGameState } from '../utils/prepareGameState'
-import { shouldNeverHappen } from '../utils/shouldNeverHappen'
 
 // TODO: use neverthrow
 export class GameState {
@@ -52,7 +52,7 @@ export class GameState {
     const { player, opponent } = this.getPlayers(userId)
 
     if (opponent === undefined) {
-      shouldNeverHappen(
+      shouldNeverHappenInServer(
         'There should always be an opponent while game is ongoing'
       )
     }

@@ -1,6 +1,8 @@
-import { useServerFn } from '@tanstack/react-start'
-import { useGame } from '~/hooks/useGame'
-import { playFn } from '~/lib/iso/functions/play'
+import { useConvexMutation } from '@convex-dev/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { api } from '~/convex/api'
+import { type Id } from '~/convex/dataModel'
+import { useGameState } from '~/hooks/useGame'
 import { PlayerBoard } from './Board'
 
 // TODO: Create a PlayerBoard component which takes in a Player and userType
@@ -15,30 +17,34 @@ import { PlayerBoard } from './Board'
 // read the comments in Board.tsx and PlayerTwoBoard.tsx for more info
 
 export function PlayerOneBoard() {
-  const { playerOne, userType, id } = useGame()
-  const play = useServerFn(playFn)
+  // useGameStateOnGoing?
+  const gameState = useGameState()!
+  const player = gameState.currentPlayer!
+  // can be a getter in gamestate
+  const isPlayerTurn = gameState.nextPlayerUserId === player.userId
 
-  const isPlayerTurn = playerOne.dieToPlay !== null
-  const isSpectator = userType === 'spectator'
+  const { mutate } = useMutation({
+    mutationFn: useConvexMutation(api.kbGame.play)
+  })
 
   return (
     <PlayerBoard
-      columns={playerOne.board}
-      die={playerOne.dieToPlay ?? undefined}
+      columns={player.board}
+      die={player.dieToPlay ?? undefined}
       position='bottom'
       onColumnClick={
         isPlayerTurn
           ? (column) => {
-              void play({
-                data: {
-                  column,
-                  gameId: id
-                }
+              // 1. should override game._id type in GameStateWithDb
+              // 2. should have a getter for gameId
+              mutate({
+                gameId: gameState.toJson.game._id as Id<'kb_games'>,
+                column
               })
             }
           : undefined
       }
-      canPlay={!isSpectator}
+      canPlay={!gameState.isSpectator}
       isPlayerTurn={isPlayerTurn}
     />
   )

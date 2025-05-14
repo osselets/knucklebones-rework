@@ -1,56 +1,52 @@
-import { useEffect } from 'react'
-import { type } from 'arktype'
-import { queryOptions, useSuspenseQuery } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
+import {
+  convexQuery,
+  useConvexAuth,
+  useConvexMutation
+} from '@convex-dev/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
-import { getGameForUserFn } from '~/lib/iso/functions/getGame'
-import { preparedGameStateType } from '~/lib/iso/utils/prepareGameState'
-
-interface UseSSEOptions {
-  url: string
-  onMessage(data: string, event: MessageEvent): void
-}
-
-// to be shared once we have multiple games based on this system
-function useSSE({ url, onMessage }: UseSSEOptions) {
-  useEffect(() => {
-    const eventSource = new EventSource(url)
-    eventSource.onmessage = (event) => {
-      onMessage(event.data, event)
-    }
-    return () => {
-      eventSource.close()
-    }
-  }, [])
-}
-
-export const gameQueryOptions = (gameId: string) =>
-  queryOptions({
-    queryKey: ['game', gameId],
-    async queryFn() {
-      return await getGameForUserFn({ data: gameId })
-    }
-  })
+import { api } from '~/convex/api'
+import { type Id } from '~/convex/dataModel'
+import { authClient } from '~/lib/client/auth'
+import { GameState } from '~/new-common'
 
 const gameRoute = getRouteApi('/game/$id')
 
-export function useGame() {
+export function useGameState() {
+  const { isAuthenticated } = useConvexAuth()
+  const { data: session } = authClient.useSession()
   const { id } = gameRoute.useParams()
-  const { queryClient } = gameRoute.useRouteContext()
-  // gameQueryOptions is used to load data at the route level
-  const { data } = useSuspenseQuery(gameQueryOptions(id))
+  const gameId = id as Id<'kb_games'>
 
-  useSSE({
-    url: `/api/game/${id}/sse`,
-    onMessage(data) {
-      const gameState = preparedGameStateType(JSON.parse(data))
-      if (gameState instanceof type.errors) {
-        // feedback error to user
-        console.error(gameState.summary)
-        return
-      }
-      queryClient.setQueryData(gameQueryOptions(id).queryKey, gameState)
+  const { data: gameStateData } = useQuery(
+    convexQuery(api.kbGame.getGame, { gameId })
+  )
+  console.log(gameStateData)
+  // const { data: gameStateData } = useQuery({
+  //   ...convexQuery(api.kbGame.getGame, { gameId }),
+  //   enabled: isAuthenticated
+  // })
+  const gameState = useMemo(() => {
+    if (gameStateData === undefined || session === null) {
+      return null
     }
-  })
+    return GameState.createDefaultGameState({
+      ...gameStateData,
+      userId: session.session.userId
+    })
+  }, [gameStateData, session])
 
-  return data
+  // meh ideally this would be handled in the beforeload of the route, but
+  // i'll have to find a way to call Convex outside of react
+  const { mutate, isSuccess } = useMutation({
+    mutationFn: useConvexMutation(api.kbGame.joinGame)
+  })
+  useEffect(() => {
+    if (isAuthenticated && !isSuccess) {
+      mutate({ gameId })
+    }
+  }, [gameId, mutate, isAuthenticated, isSuccess])
+
+  return gameState
 }
