@@ -27,13 +27,14 @@ export const createGame = userMutation({
   // actually, previousGameId shouldn't be here, there should be a different
   // endpoint, so that we can reuse the settings of the previous game automatically
   handler: async (ctx, { boType, difficulty }) => {
-    const aiId = process.env.AI_1_USER_ID!
     const gameState = await GameStateWithDb.createGameInDb({
       ctx,
-      userId: aiId,
+      userId: ctx.userId,
       boType,
       difficulty
     })
+
+    const aiId = process.env.AI_1_USER_ID!
 
     await gameState.joinIfPossible(gameState.isAgainstAi ? aiId : undefined)
     const gameId = gameState.toJson.game._id

@@ -39,14 +39,14 @@ export function useGameState() {
 
   // meh ideally this would be handled in the beforeload of the route, but
   // i'll have to find a way to call Convex outside of react
-  const { mutate, isSuccess } = useMutation({
+  const { mutate, status } = useMutation({
     mutationFn: useConvexMutation(api.kbGame.joinGame)
   })
   useEffect(() => {
-    if (isAuthenticated && !isSuccess) {
+    if (isAuthenticated && status === 'idle') {
       mutate({ gameId })
     }
-  }, [gameId, mutate, isAuthenticated, isSuccess])
+  }, [gameId, mutate, isAuthenticated, status])
 
   return gameState
 }

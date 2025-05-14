@@ -109,7 +109,7 @@ export class GameState<
   // as spectator, as they could be players
   public get isSpectator() {
     return (
-      this.players.length === 2 &&
+      this.game.status !== 'waiting' &&
       !this.players.some((p) => p.userId === this.currentUserId)
     )
   }
@@ -162,7 +162,7 @@ export class GameState<
   }
 
   protected get canUserJoin() {
-    return !this.isSpectator && this.currentPlayer === undefined
+    return this.players.length <= 2 && this.currentPlayer === undefined
   }
 
   // actions
