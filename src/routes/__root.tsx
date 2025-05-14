@@ -105,16 +105,22 @@ export const Route = createRootRouteWithContext<Context>()({
   component: RootComponent,
   errorComponent: ErrorComponent,
   async beforeLoad({ context }) {
-    // or getToken directly?
-    const token = await context.queryClient.ensureQueryData(tokenQueryOptions)
-    if (token !== '') {
-      console.log('server', { token })
-      // why not this? context.convexClient.setAuth
+    // for now just ignore if user's is not authenticated, so we can log in
+    // this won't stay like this
+    try {
+      // or getToken directly?
+      const token = await context.queryClient.ensureQueryData(tokenQueryOptions)
+      if (token !== '') {
+        console.log('server', { token })
+        // why not this? context.convexClient.setAuth
 
-      // During SSR only (the only time serverHttpClient exists),
-      // set the Clerk auth token to make HTTP queries with.
-      // https://docs.convex.dev/client/react/tanstack-start/tanstack-start-with-clerk
-      context.convexQueryClient.serverHttpClient?.setAuth(token)
+        // During SSR only (the only time serverHttpClient exists),
+        // set the Clerk auth token to make HTTP queries with.
+        // https://docs.convex.dev/client/react/tanstack-start/tanstack-start-with-clerk
+        context.convexQueryClient.serverHttpClient?.setAuth(token)
+      }
+    } catch (e) {
+      console.log(e)
     }
   }
 })
