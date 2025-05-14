@@ -107,6 +107,8 @@ export const Route = createRootRouteWithContext<Context>()({
   async beforeLoad({ context }) {
     // for now just ignore if user's is not authenticated, so we can log in
     // this won't stay like this
+    // note: login anon can be used without redirect, thus, can be called right
+    // before creating a game
     try {
       // or getToken directly?
       const token = await context.queryClient.ensureQueryData(tokenQueryOptions)
