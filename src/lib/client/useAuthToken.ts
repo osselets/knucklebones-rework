@@ -37,14 +37,14 @@ export const tokenQueryOptions = queryOptions({
   staleTime: 14 * 60 * 60 * 1000
 })
 
+// seems like it's being re-rendered some times and it fetches a new token when
+// it shouldn't. a bit sub-optimized but it works.
 export const useAuthToken: UseAuthToken = () => {
   const queryClient = useQueryClient()
   const { data: sessionData, isPending } = authClient.useSession()
 
   const isAuthenticated = sessionData?.session.id !== undefined
   const isLoading = isPending
-
-  console.log('better-auth', { isAuthenticated, isLoading })
 
   const fetchAccessToken: FetchAccessToken = useCallback(
     async ({ forceRefreshToken }) => {
@@ -58,7 +58,6 @@ export const useAuthToken: UseAuthToken = () => {
         ...tokenQueryOptions,
         staleTime: forceRefreshToken ? 0 : undefined
       })
-      console.log('client', { token })
       return token
     },
     [isAuthenticated, queryClient]

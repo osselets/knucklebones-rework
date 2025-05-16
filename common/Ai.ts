@@ -1,4 +1,8 @@
-import { type Game, type GameState, type Player } from './GameState'
+import {
+  type Game,
+  type AbstractGameState,
+  type Player
+} from './AbstractGameClass'
 import { getMaxBy, getMinBy, sortBy } from './array'
 import { countDiceInColumn } from './count'
 import { getColumnScore } from './score'
@@ -17,7 +21,7 @@ export class Ai {
   private readonly ai: Player
   private readonly human: Player
 
-  constructor(gameState: GameState) {
+  constructor(gameState: AbstractGameState<Game, Player>) {
     if (
       gameState.currentPlayer === undefined ||
       gameState.opponent === undefined

@@ -22,11 +22,6 @@ export function useGameState() {
   const { data: gameStateData } = useQuery(
     convexQuery(api.kbGame.getGame, { gameId })
   )
-  console.log(gameStateData)
-  // const { data: gameStateData } = useQuery({
-  //   ...convexQuery(api.kbGame.getGame, { gameId }),
-  //   enabled: isAuthenticated
-  // })
   const gameState = useMemo(() => {
     if (gameStateData === undefined || session === null) {
       return null

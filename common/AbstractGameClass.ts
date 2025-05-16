@@ -5,13 +5,14 @@ import { getTotalScore } from './score'
 
 export type BoType = 'free_play' | '1' | '3' | '5'
 export type Difficulty = 'easy' | 'medium' | 'hard' | null
+export type VoteType = 'rematch' | 'continue' | null
 
 export type Game = {
   readonly _id: string // convex system field
+  baseGameId: string | null
   boType: BoType
   status: 'waiting' | 'playing' | 'finished'
   difficulty: Difficulty
-  // previousGameId: string | null
   modificationTime: number
 }
 
@@ -20,90 +21,59 @@ export type Player = {
   gameId: string
   board: number[][]
   score: number
-  rematch: boolean
+  voteFor: VoteType
   dieToPlay: number | null
   modificationTime: number
 }
 
 export type GameStateOptions<TGame extends Game, TPlayer extends Player> = {
-  game: TGame
+  /** game may not exist, as when creating a new game */
+  game?: TGame
   players: TPlayer[]
   userId: string
-  generatePlayer(): TPlayer
+  history?: Array<AbstractGameState<TGame, TPlayer>>
 }
 
 export type CreateGameStateOptions = {
   userId: string
   boType: BoType
   difficulty: Difficulty
-}
-
-export function generatePlayer(): Player {
-  const date = new Date()
-  return {
-    userId: 'TO BE SET',
-    gameId: 'TO BE SET',
-    board: [[], [], []],
-    score: 0,
-    rematch: false,
-    dieToPlay: null,
-    modificationTime: date.valueOf()
-  }
+  history?: Array<AbstractGameState<Game, Player>>
 }
 
 // Note: would be nice to have a NotReadyGameState and a ReadyGameState, to assert
 // things around players (avoid possibly undefined)
 
 // TODO: use neverthrow?
-export class GameState<
-  TGame extends Game = Game,
-  TPlayer extends Player = Player
+export abstract class AbstractGameState<
+  TGame extends Game,
+  TPlayer extends Player
 > {
+  // all these are readonly as they should not be mutated once a game is created
+  // the underlying properties or elements may change
   protected readonly game: TGame
   protected readonly players: TPlayer[]
   protected readonly currentUserId: string
-  // need this to avoid Typescript issue around `this.players.push` using generics
-  // and allow for `GameStateWithDb` to handle some Convex specific stuff for players
-  protected readonly generatePlayer: () => TPlayer
-
-  // instanciators
+  protected readonly history: Array<AbstractGameState<TGame, TPlayer>>
+  protected nextGameState?: AbstractGameState<TGame, TPlayer>
 
   constructor({
-    game,
+    game = this.generateGame(),
     players,
     userId,
-    generatePlayer
+    history = []
   }: GameStateOptions<TGame, TPlayer>) {
     this.game = game
     this.players = players
     this.currentUserId = userId
-    this.generatePlayer = generatePlayer
+    this.history = history
   }
 
-  static createGame({ boType, difficulty, userId }: CreateGameStateOptions) {
-    return new GameState({
-      game: {
-        _id: 'TO BE SET',
-        boType,
-        difficulty,
-        status: 'waiting',
-        modificationTime: Date.now()
-      },
-      players: [],
-      userId,
-      generatePlayer
-    })
-  }
+  // accessors and state describers
 
-  static createDefaultGameState({
-    game,
-    players,
-    userId
-  }: Omit<GameStateOptions<Game, Player>, 'generatePlayer'>) {
-    return new GameState({ game, players, userId, generatePlayer })
+  public get gameId() {
+    return this.game._id
   }
-
-  // state describers
 
   // until there's not enough player to start the game, nobody will be considered
   // as spectator, as they could be players
@@ -138,12 +108,33 @@ export class GameState<
     )
   }
 
+  public get isWaiting() {
+    return this.game.status === 'waiting'
+  }
+
   public get isOngoing() {
     return this.game.status === 'playing'
   }
 
   public get isAgainstAi() {
     return this.game.difficulty !== null
+  }
+
+  public get nextPlayerUserId() {
+    return this.players.find((player) => player.dieToPlay !== null)?.userId
+  }
+
+  public get winner() {
+    if (
+      !this.hasEnded ||
+      this.currentPlayer === undefined ||
+      this.opponent === undefined
+    )
+      return null
+
+    return this.currentPlayer.score > this.opponent.score
+      ? this.currentPlayer
+      : this.opponent
   }
 
   public get toJson() {
@@ -153,16 +144,16 @@ export class GameState<
     }
   }
 
-  public get nextPlayerUserId() {
-    return this.players.find((player) => player.dieToPlay !== null)?.userId
-  }
-
   protected get shouldStartGame() {
     return this.players.length === 2
   }
 
-  protected get canUserJoin() {
+  protected get canCurrentUserJoin() {
     return this.players.length <= 2 && this.currentPlayer === undefined
+  }
+
+  protected get shouldProceedWithVote() {
+    return this.currentPlayer!.voteFor === this.opponent!.voteFor
   }
 
   // actions
@@ -207,24 +198,51 @@ export class GameState<
     }
   }
 
-  public joinIfPossible(aiUserId?: string) {
-    if (!this.canUserJoin) return
+  public join() {
+    this.addPlayer(this.currentUserId)
+  }
+
+  public addOpponent(userId: string) {
+    this.addPlayer(userId)
+  }
+
+  public voteFor(voteType: VoteType) {
+    const modificationTime = new Date().valueOf()
+    this.currentPlayer!.voteFor = voteType
+    this.currentPlayer!.modificationTime = modificationTime
+
+    // why not do the same thing as join?
+    if (this.isAgainstAi) {
+      this.opponent!.voteFor = voteType
+      this.opponent!.modificationTime = modificationTime
+    }
+
+    if (this.shouldProceedWithVote) {
+      const nextGameState = this.generateNextGameState(this.currentUserId)
+
+      // protected properties can be accessed from instances of the same class
+      // ported to TS from C#: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/protected#example-2
+      nextGameState.game.boType =
+        voteType === 'rematch' ? this.game.boType : 'free_play'
+      nextGameState.game.difficulty = this.game.difficulty
+      nextGameState.addOpponent(this.opponent!.userId)
+
+      this.nextGameState = nextGameState
+    }
+  }
+
+  // Utils
+
+  protected addPlayer(userId: string) {
+    if (!this.canUserJoin(userId)) return
 
     const date = new Date()
 
     const player = this.generatePlayer()
     player.userId = this.currentUserId
-    player.gameId = this.game._id
+    player.gameId = this.gameId
     player.modificationTime = date.valueOf()
     this.players.push(player)
-
-    if (aiUserId !== undefined) {
-      const aiPlayer = this.generatePlayer()
-      aiPlayer.userId = aiUserId
-      aiPlayer.gameId = this.game._id
-      aiPlayer.modificationTime = date.valueOf()
-      this.players.push(aiPlayer)
-    }
 
     if (this.shouldStartGame) {
       this.setFirstPlayer()
@@ -232,8 +250,6 @@ export class GameState<
       this.game.modificationTime = date.valueOf()
     }
   }
-
-  // Utils
 
   protected setFirstPlayer() {
     if (this.players.length !== 2) {
@@ -246,8 +262,32 @@ export class GameState<
     this.players[firstPlayerIndex].dieToPlay = dieToPlay
   }
 
+  protected canUserJoin(userId: string) {
+    return (
+      this.players.length <= 2 &&
+      !this.players.some((player) => player.userId === userId)
+    )
+  }
+
   protected IsBoardFull(board: number[][]) {
     // 3 columns x 3 rows = 9 dice
     return board.flat().length === 9
   }
+
+  // internal generators
+  // this pattern ensures that the base class can generate players, games and
+  // new state while using generics so that each sub-class can have different
+  // sub types
+
+  protected abstract generatePlayer(): TPlayer
+
+  protected abstract generateGame(): TGame
+
+  protected abstract generateNextGameState(
+    userId: string
+  ): AbstractGameState<TGame, TPlayer>
 }
+
+// // #region
+// export default ClientGameState
+// // #endregion

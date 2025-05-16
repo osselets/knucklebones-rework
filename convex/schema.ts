@@ -18,6 +18,11 @@ export const status = v.union(
   v.literal('playing'),
   v.literal('finished')
 )
+export const voteType = v.union(
+  v.literal('rematch'),
+  v.literal('continue'),
+  v.null()
+)
 
 // all documents have a _id and _creationTime fields by default
 export default defineSchema({
@@ -29,13 +34,11 @@ export default defineSchema({
     difficulty,
     // same type and naming conventation as _creationTime
     // but not keeping the underscore to differentiate with system fields
-    modificationTime: v.number()
-    // re-visit this later
-    // when should it be used? only for BOs or also on free play?
-    // how would it work with convex? cannot write the SQL for a recursive query, thus multiple serial queries
-    // or change it to `initialGameId`, so that I can get all the games with 1 query?
-    // previousGameId: v.union(v.id('kb_games'), v.null())
-  }),
+    modificationTime: v.number(),
+    // all games following the inital game (whether it's in free_play on in a bo)
+    // will point to the initial game id, so that the history can be retrieved efficiently
+    baseGameId: v.union(v.id('kb_games'), v.null())
+  }).index('by_base_game_id', ['baseGameId']),
   kb_game_players: defineTable({
     // userId is comming from better-auth (external db), and it's a string
     userId: v.string(),
@@ -44,8 +47,8 @@ export default defineSchema({
     board: v.string(),
     // default value 0
     score: v.number(),
-    // default value false
-    rematch: v.boolean(),
+    // default value null
+    voteFor: voteType,
     // default value null
     dieToPlay: v.union(v.number(), v.null()),
     // same type and naming conventation as _creationTime

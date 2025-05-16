@@ -9,7 +9,7 @@ export function Game() {
   const gameState = useGameState()
   // const isOnMobile = useIsOnMobile()
 
-  if (gameState === null || !gameState.isOngoing) {
+  if (gameState === null || gameState.isWaiting) {
     return <Loading />
   }
 

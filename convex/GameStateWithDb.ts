@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/consistent-type-definitions */
 
 import {
+  AbstractGameState,
   type CreateGameStateOptions,
-  GameState,
-  generatePlayer
+  type VoteType
 } from '~/common'
 import { type Id, type Doc } from './_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from './_generated/server'
@@ -20,9 +20,11 @@ type GameStateWithDbOptions = {
   userId: string
   game: ConvexGame
   players: ConvexPlayer[]
+  history?: GameStateWithDb[]
 }
 
 type CreateGameStateWithDbOptions = CreateGameStateOptions & {
+  baseGameId: Id<'kb_games'> | null
   ctx: GenericCtx
 }
 
@@ -32,24 +34,17 @@ function checkCanMutate(ctx: GenericCtx): asserts ctx is MutationCtx {
   }
 }
 
-function generateConvexPlayer(): UpdatedConvexPlayer {
-  const player = generatePlayer()
-  return {
-    ...player,
-    _id: 'TO BE SET' as Id<'kb_game_players'>,
-    _creationTime: Date.now(),
-    gameId: 'TO BE SET' as Id<'kb_games'>
-  }
-}
-
 // TODO: use neverthrow
-export class GameStateWithDb extends GameState<
+// what about ServerGameState?
+export class GameStateWithDb extends AbstractGameState<
   ConvexGame,
   UpdatedConvexPlayer
 > {
   private readonly ctx: GenericCtx
 
-  constructor({ ctx, game, players, userId }: GameStateWithDbOptions) {
+  // instantiators
+
+  constructor({ ctx, game, players, userId, history }: GameStateWithDbOptions) {
     super({
       game,
       players: players.map((player) => ({
@@ -57,35 +52,84 @@ export class GameStateWithDb extends GameState<
         board: JSON.parse(player.board)
       })),
       userId,
-      generatePlayer: generateConvexPlayer
+      history
     })
     this.ctx = ctx
   }
 
-  // should use object parameter as well?
-  static async createGameInDb({
+  public static async get(
+    ctx: GenericCtx,
+    userId: string,
+    gameId: Id<'kb_games'>
+  ) {
+    const [game, players, history] = await Promise.allSettled([
+      ctx.db.get(gameId),
+      ctx.db
+        .query('kb_game_players')
+        .withIndex('by_game_and_user', (q) => q.eq('gameId', gameId))
+        .take(2),
+      GameStateWithDb.getHistory(ctx, gameId, userId)
+    ])
+    if (game.status === 'rejected' || game.value === null) {
+      throw new Error('Game not found')
+    }
+    if (players.status === 'rejected' || players.value.length === 0) {
+      throw new Error('Players not found')
+    }
+    if (history.status === 'rejected' || history.value.length === 0) {
+      throw new Error('History not found')
+    }
+
+    return new GameStateWithDb({
+      ctx,
+      userId,
+      game: game.value,
+      players: players.value,
+      history: history.value
+    })
+  }
+
+  static async create({
     ctx,
     boType,
     difficulty,
-    userId
+    userId,
+    baseGameId
   }: CreateGameStateWithDbOptions) {
     checkCanMutate(ctx)
 
-    const gameState = GameState.createGame({ userId, boType, difficulty })
-    const { _id, ...game } = gameState.toJson.game
-    const gameId = await ctx.db.insert('kb_games', game)
+    const game = GameStateWithDb.createGame({ boType, difficulty })
+    const { _id, _creationTime, ...gameProps } = game
+
+    // fetch history before creating the game, otherwise, it'll be in the history
+    const history: GameStateWithDb[] =
+      baseGameId !== null
+        ? await GameStateWithDb.getHistory(ctx, baseGameId, userId)
+        : []
+
+    const gameId = await ctx.db.insert('kb_games', { ...gameProps, baseGameId })
 
     return new GameStateWithDb({
       ctx,
       userId,
       game: {
         ...game,
+        baseGameId,
         _id: gameId,
         _creationTime: game.modificationTime
       },
-      players: []
+      players: [],
+      history
     })
   }
+
+  // accessors and state describers
+
+  public override get gameId() {
+    return this.game._id
+  }
+
+  // overriden methods to persist data
 
   public override async play(column: number) {
     checkCanMutate(this.ctx)
@@ -121,50 +165,147 @@ export class GameStateWithDb extends GameState<
     ])
   }
 
-  public override async joinIfPossible(aiUserId?: string) {
+  public override async voteFor(voteType: VoteType) {
     checkCanMutate(this.ctx)
-    if (!this.canUserJoin) return
-    super.joinIfPossible(aiUserId)
+    super.voteFor(voteType)
 
-    // joinIfPossible doesn't provide a type guard for currentPlayer
-    if (this.currentPlayer === undefined) {
-      throw new Error('Player not found after joining')
-    }
-
-    const shouldUpdateOpponent =
-      aiUserId === undefined && this.opponent !== undefined
-    const shouldInsertAi = aiUserId !== undefined && this.opponent !== undefined
+    const nextGame =
+      this.shouldProceedWithVote && this.nextGameState !== undefined
+        ? this.nextGameState.toJson.game
+        : undefined
 
     await Promise.allSettled([
-      this.ctx.db.insert('kb_game_players', {
-        userId: this.currentUserId,
-        gameId: this.game._id,
-        dieToPlay: this.currentPlayer.dieToPlay,
-        board: JSON.stringify(this.currentPlayer.board),
-        modificationTime: this.currentPlayer.modificationTime,
-        rematch: this.currentPlayer.rematch,
-        score: this.currentPlayer.score
+      this.ctx.db.patch(this.currentPlayer!._id, {
+        voteFor: voteType,
+        modificationTime: this.currentPlayer!.modificationTime
       }),
-      shouldUpdateOpponent &&
-        this.ctx.db.patch(this.opponent._id, {
-          dieToPlay: this.opponent.dieToPlay,
-          modificationTime: this.opponent.modificationTime
+      this.isAgainstAi &&
+        this.ctx.db.patch(this.opponent!._id, {
+          voteFor: voteType,
+          modificationTime: this.opponent!.modificationTime
         }),
-      shouldInsertAi &&
-        this.ctx.db.insert('kb_game_players', {
-          gameId: this.game._id,
-          userId: this.opponent.userId,
-          dieToPlay: this.opponent.dieToPlay,
-          board: JSON.stringify(this.opponent.board),
-          modificationTime: this.opponent.modificationTime,
-          rematch: this.opponent.rematch,
-          score: this.opponent.score
-        }),
+      nextGame !== undefined && this.ctx.db.insert('kb_games', nextGame)
+    ])
+  }
+
+  // technically is slightly sub-optimal because we don't add both players in
+  // parallel for AI games, but it's not a big deal.
+  protected override async addPlayer(userId: string) {
+    checkCanMutate(this.ctx)
+    if (!this.canUserJoin(userId)) return
+    // ideally, addPlayer returns the added player, but for some reason, I cannot
+    // make it work with the overridden signature that returns it in a promise.
+    super.addPlayer(userId)
+
+    // should always be present if it passed `canUserJoin` before `addPlayer`
+    const addedPlayer = this.players.find((p) => p.userId === userId)!
+
+    // should have handlers to be using allSettled
+    await Promise.all([
+      this.ctx.db.insert('kb_game_players', {
+        userId,
+        gameId: this.gameId,
+        dieToPlay: addedPlayer.dieToPlay,
+        board: JSON.stringify(addedPlayer.board),
+        modificationTime: addedPlayer.modificationTime,
+        voteFor: addedPlayer.voteFor,
+        score: addedPlayer.score
+      }),
       this.shouldStartGame &&
-        this.ctx.db.patch(this.game._id, {
+        this.ctx.db.patch(this.gameId, {
           status: 'playing',
-          modificationTime: this.currentPlayer.modificationTime
+          modificationTime: addedPlayer.modificationTime
         })
     ])
+  }
+
+  // overridden methods for db specific types
+
+  public async join() {
+    await this.addPlayer(this.currentUserId)
+  }
+
+  public async addOpponent(userId: string) {
+    await this.addPlayer(userId)
+  }
+
+  protected override generatePlayer(): UpdatedConvexPlayer {
+    return {
+      _id: 'TO BE SET' as Id<'kb_game_players'>,
+      _creationTime: Date.now(),
+      gameId: 'TO BE SET' as Id<'kb_games'>,
+      userId: 'TO BE SET',
+      board: [[], [], []],
+      score: 0,
+      voteFor: null,
+      dieToPlay: null,
+      modificationTime: Date.now()
+    }
+  }
+
+  private static createGame(overrides?: Partial<ConvexGame>): ConvexGame {
+    return {
+      _id: 'TO BE SET' as Id<'kb_games'>,
+      _creationTime: Date.now(),
+      boType: 'free_play',
+      difficulty: null,
+      status: 'waiting',
+      baseGameId: null,
+      modificationTime: Date.now(),
+      ...overrides
+    }
+  }
+
+  protected override generateGame(): ConvexGame {
+    return GameStateWithDb.createGame()
+  }
+
+  protected override generateNextGameState(userId: string): GameStateWithDb {
+    return new GameStateWithDb({
+      userId,
+      ctx: this.ctx,
+      game: this.generateGame(),
+      players: [],
+      history: []
+    })
+  }
+
+  // internal utils
+
+  private static async getHistory(
+    ctx: GenericCtx,
+    baseGameId: Id<'kb_games'>,
+    userId: string
+  ) {
+    const history: GameStateWithDb[] = []
+    const previousGames = await ctx.db
+      .query('kb_games')
+      .withIndex('by_base_game_id', (q) => q.eq('baseGameId', baseGameId))
+      .collect()
+    // might add a baseGameId to players as well so that it's more efficient to retrieve
+    const previousGamePlayers = await Promise.allSettled(
+      previousGames.map(async (game) => {
+        return {
+          game,
+          players: await ctx.db
+            .query('kb_game_players')
+            .withIndex('by_game_and_user', (q) => q.eq('gameId', game._id))
+            .take(2)
+        }
+      })
+    )
+    for (const prev of previousGamePlayers) {
+      if (prev.status === 'fulfilled') {
+        const { game, players } = prev.value
+        const gameState = new GameStateWithDb({
+          game,
+          players,
+          ctx,
+          userId
+        })
+        history.push(gameState)
+      }
+    }
+    return history
   }
 }

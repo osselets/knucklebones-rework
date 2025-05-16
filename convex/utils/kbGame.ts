@@ -14,40 +14,12 @@ import {
 } from '../_generated/server'
 import { getUserIdOrThrow } from '../utils/auth'
 
-export async function getGameAndPlayers(
-  ctx: QueryCtx | MutationCtx,
-  gameId: Id<'kb_games'>
-) {
-  const [game, players] = await Promise.allSettled([
-    ctx.db.get(gameId),
-    ctx.db
-      .query('kb_game_players')
-      .withIndex('by_game_and_user', (q) => q.eq('gameId', gameId))
-      .take(2)
-  ])
-  if (game.status === 'rejected' || game.value === null) {
-    throw new Error('Game not found')
-  }
-  if (players.status === 'rejected' || players.value.length === 0) {
-    throw new Error('Players not found')
-  }
-
-  return { game: game.value, players: players.value }
-}
-
 export async function getGameState(
   ctx: QueryCtx | MutationCtx,
   gameId: Id<'kb_games'>
 ) {
   const userId = await getUserIdOrThrow(ctx)
-  const { game, players } = await getGameAndPlayers(ctx, gameId)
-  const gameState = new GameStateWithDb({
-    ctx,
-    userId,
-    game,
-    players
-  })
-  return { userId, gameState }
+  return { userId, gameState: await GameStateWithDb.get(ctx, userId, gameId) }
 }
 
 export const gameStateQuery = customQuery(query, {
@@ -74,15 +46,14 @@ export const aiMutation = customMutation(internalMutation, {
   // could add aiId: v.string() later when I have to deal with multiple ais?
   args: { gameId: v.id('kb_games') },
   async input(ctx, { gameId }) {
-    const { game, players } = await getGameAndPlayers(ctx, gameId)
-    const gameState = new GameStateWithDb({
-      userId: process.env.AI_1_USER_ID!,
-      ctx,
-      game,
-      players
-    })
     return {
-      ctx: { gameState },
+      ctx: {
+        gameState: await GameStateWithDb.get(
+          ctx,
+          process.env.AI_1_USER_ID!,
+          gameId
+        )
+      },
       args: {}
     }
   }
