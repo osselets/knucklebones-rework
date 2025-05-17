@@ -62,13 +62,12 @@ export class GameStateWithDb extends AbstractGameState<
     userId: string,
     gameId: Id<'kb_games'>
   ) {
-    const [game, players, history] = await Promise.allSettled([
+    const [game, players] = await Promise.allSettled([
       ctx.db.get(gameId),
       ctx.db
         .query('kb_game_players')
         .withIndex('by_game_and_user', (q) => q.eq('gameId', gameId))
-        .take(2),
-      GameStateWithDb.getHistory(ctx, gameId, userId)
+        .take(2)
     ])
     if (game.status === 'rejected' || game.value === null) {
       throw new Error('Game not found')
@@ -76,16 +75,18 @@ export class GameStateWithDb extends AbstractGameState<
     if (players.status === 'rejected' || players.value.length === 0) {
       throw new Error('Players not found')
     }
-    if (history.status === 'rejected' || history.value.length === 0) {
-      throw new Error('History not found')
-    }
+    const baseGameId = game.value.baseGameId
+    const history =
+      baseGameId !== null
+        ? await GameStateWithDb.getHistory(ctx, baseGameId, userId)
+        : []
 
     return new GameStateWithDb({
       ctx,
       userId,
       game: game.value,
       players: players.value,
-      history: history.value
+      history
     })
   }
 
@@ -157,7 +158,7 @@ export class GameStateWithDb extends AbstractGameState<
         modificationTime: this.opponent.modificationTime,
         dieToPlay: this.opponent.dieToPlay
       }),
-      this.hasEnded &&
+      this.hasRoundEnded &&
         this.ctx.db.patch(this.game._id, {
           status: 'finished',
           modificationTime: this.currentPlayer.modificationTime

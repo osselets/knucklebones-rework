@@ -3,7 +3,7 @@ import {
   type GameStateOptions,
   type Game,
   type Player
-} from './AbstractGameClass'
+} from './AbstractGameState'
 
 // as it's purely client side, this may be moved to the client side code?
 // though it's not really client, it's agnostic

@@ -75,6 +75,10 @@ export abstract class AbstractGameState<
     return this.game._id
   }
 
+  public get boType() {
+    return this.game.boType
+  }
+
   // until there's not enough player to start the game, nobody will be considered
   // as spectator, as they could be players
   public get isSpectator() {
@@ -101,11 +105,23 @@ export abstract class AbstractGameState<
     return this.players.find((player) => player.userId !== this.currentUserId)
   }
 
-  public get hasEnded() {
+  public get hasRoundEnded() {
     return (
       this.game.status === 'finished' ||
       this.players.some((p) => this.IsBoardFull(p.board))
     )
+  }
+
+  public get hasGameEnded() {
+    if (this.game.boType === 'free_play') {
+      return this.hasRoundEnded
+    }
+    const numberOfRounds = Number(this.game.boType)
+    const playedRounds = this.history.filter(
+      (game) => game.roundWinner !== null && game.roundWinner !== 'draw'
+    )
+    // history doesn't take in account the current game
+    return this.hasRoundEnded && playedRounds.length + 1 === numberOfRounds
   }
 
   public get isWaiting() {
@@ -124,15 +140,42 @@ export abstract class AbstractGameState<
     return this.players.find((player) => player.dieToPlay !== null)?.userId
   }
 
-  public get winner() {
+  public get roundWinner() {
     if (
-      !this.hasEnded ||
+      !this.hasRoundEnded ||
       this.currentPlayer === undefined ||
       this.opponent === undefined
     )
       return null
 
+    if (this.currentPlayer.score === this.opponent.score) {
+      return 'draw'
+    }
+
     return this.currentPlayer.score > this.opponent.score
+      ? this.currentPlayer
+      : this.opponent
+  }
+
+  public get gameWinner() {
+    if (
+      !this.hasGameEnded ||
+      this.currentPlayer === undefined ||
+      this.opponent === undefined
+    )
+      return null
+
+    const scores = this.history.reduce(
+      (acc, curr) => {
+        if (curr.roundWinner === null && curr.roundWinner === 'draw') return acc
+        if (curr.roundWinner === curr.currentPlayer) acc.currentPlayer++
+        if (curr.roundWinner === curr.opponent) acc.opponent++
+        return acc
+      },
+      { currentPlayer: 0, opponent: 0 }
+    )
+
+    return scores.currentPlayer > scores.opponent
       ? this.currentPlayer
       : this.opponent
   }
@@ -192,7 +235,7 @@ export abstract class AbstractGameState<
     this.currentPlayer.dieToPlay = null
     this.opponent.dieToPlay = getRandomDice()
 
-    if (this.hasEnded) {
+    if (this.hasRoundEnded) {
       this.game.status = 'finished'
       this.game.modificationTime = Date.now()
     }
@@ -239,7 +282,7 @@ export abstract class AbstractGameState<
     const date = new Date()
 
     const player = this.generatePlayer()
-    player.userId = this.currentUserId
+    player.userId = userId
     player.gameId = this.gameId
     player.modificationTime = date.valueOf()
     this.players.push(player)

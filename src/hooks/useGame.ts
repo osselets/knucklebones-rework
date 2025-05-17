@@ -9,7 +9,7 @@ import { getRouteApi } from '@tanstack/react-router'
 import { api } from '~/convex/api'
 import { type Id } from '~/convex/dataModel'
 import { authClient } from '~/lib/client/auth'
-import { GameState } from '~/new-common'
+import { ClientGameState } from '~/new-common'
 
 const gameRoute = getRouteApi('/game/$id')
 
@@ -26,7 +26,7 @@ export function useGameState() {
     if (gameStateData === undefined || session === null) {
       return null
     }
-    return GameState.createDefaultGameState({
+    return new ClientGameState({
       ...gameStateData,
       userId: session.session.userId
     })

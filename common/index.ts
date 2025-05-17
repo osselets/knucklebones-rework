@@ -1,4 +1,4 @@
-export * from './AbstractGameClass'
+export * from './AbstractGameState'
 export * from './Ai'
 export * from './array'
 export * from './count'

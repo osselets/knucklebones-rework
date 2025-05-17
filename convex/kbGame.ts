@@ -39,7 +39,7 @@ export const createGame = userMutation({
       difficulty,
       baseGameId: null
     })
-    const gameId = gameState.toJson.game._id
+    const gameId = gameState.gameId
 
     await gameState.join()
 
@@ -123,7 +123,7 @@ export const play = gameStateMutation({
   handler: async (ctx, { column }) => {
     await ctx.gameState.play(column)
 
-    if (ctx.gameState.isAgainstAi && !ctx.gameState.hasEnded) {
+    if (ctx.gameState.isAgainstAi && !ctx.gameState.hasRoundEnded) {
       await ctx.scheduler.runAfter(1000, internal.kbGame.aiPlay, {
         gameId: ctx.gameState.toJson.game._id
       })

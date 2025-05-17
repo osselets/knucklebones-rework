@@ -2,7 +2,7 @@ import {
   type Game,
   type AbstractGameState,
   type Player
-} from './AbstractGameClass'
+} from './AbstractGameState'
 import { getMaxBy, getMinBy, sortBy } from './array'
 import { countDiceInColumn } from './count'
 import { getColumnScore } from './score'
