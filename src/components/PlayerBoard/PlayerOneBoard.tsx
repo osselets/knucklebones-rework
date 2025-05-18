@@ -20,8 +20,8 @@ export function PlayerOneBoard() {
   // useGameStateOnGoing?
   const gameState = useGameState()!
   const player = gameState.currentPlayer!
-  // can be a getter in gamestate
-  const isPlayerTurn = gameState.nextPlayerUserId === player.userId
+  const isPlayerTurn = player.shouldPlayNext && !gameState.hasRoundEnded
+  console.log({ isPlayerTurn })
 
   const { mutate } = useMutation({
     mutationFn: useConvexMutation(api.kbGame.play)
@@ -32,13 +32,13 @@ export function PlayerOneBoard() {
       columns={player.board}
       die={player.dieToPlay ?? undefined}
       position='bottom'
+      score={player.score}
+      scorePerColumn={player.scorePerColumn}
       onColumnClick={
         isPlayerTurn
           ? (column) => {
-              // 1. should override game._id type in GameStateWithDb
-              // 2. should have a getter for gameId
               mutate({
-                gameId: gameState.toJson.game._id as Id<'kb_games'>,
+                gameId: gameState.gameId as Id<'kb_games'>,
                 column
               })
             }

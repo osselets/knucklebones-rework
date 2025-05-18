@@ -113,7 +113,6 @@ export const Route = createRootRouteWithContext<Context>()({
       // or getToken directly?
       const token = await context.queryClient.ensureQueryData(tokenQueryOptions)
       if (token !== '') {
-        console.log('server', { token })
         // why not this? context.convexClient.setAuth
 
         // During SSR only (the only time serverHttpClient exists),

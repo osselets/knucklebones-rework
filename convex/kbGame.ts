@@ -1,15 +1,10 @@
 import { v } from 'convex/values'
 import { GameStateWithDb } from '~/GameStateWithDb'
-import { internal } from '~/_generated/api'
 import { Ai } from '~/common'
 import { boType, difficulty, voteType } from '~/schema'
 import { userMutation } from '~/utils/auth'
-import {
-  gameStateMutation,
-  gameStateQuery,
-  aiMutation,
-  getGameState
-} from './utils/kbGame'
+import { aiMutation, aiPlayWithDelay } from './utils/ai'
+import { gameStateMutation, gameStateQuery, getGameState } from './utils/kbGame'
 
 // probably use neverthrow here?
 // https://docs.convex.dev/functions/error-handling/
@@ -47,9 +42,7 @@ export const createGame = userMutation({
       await gameState.addOpponent(aiId)
 
       if (gameState.nextPlayerUserId === aiId) {
-        await ctx.scheduler.runAfter(1000, internal.kbGame.aiPlay, {
-          gameId
-        })
+        await aiPlayWithDelay(ctx, gameId)
       }
     }
 
@@ -93,9 +86,7 @@ export const continueGame = userMutation({
       gameState.isAgainstAi &&
       gameState.nextPlayerUserId === gameState.opponent
     ) {
-      await ctx.scheduler.runAfter(1000, internal.kbGame.aiPlay, {
-        gameId
-      })
+      await aiPlayWithDelay(ctx, gameId)
     }
 
     return gameId
@@ -107,6 +98,7 @@ export const voteRematchGame = gameStateMutation({
     voteType
   },
   handler: async (ctx, { voteType }) => {
+    console.log(ctx.gameState.gameId)
     await ctx.gameState.voteFor(voteType)
   }
 })
@@ -124,9 +116,7 @@ export const play = gameStateMutation({
     await ctx.gameState.play(column)
 
     if (ctx.gameState.isAgainstAi && !ctx.gameState.hasRoundEnded) {
-      await ctx.scheduler.runAfter(1000, internal.kbGame.aiPlay, {
-        gameId: ctx.gameState.toJson.game._id
-      })
+      await aiPlayWithDelay(ctx, ctx.gameState.gameId)
     }
   }
 })

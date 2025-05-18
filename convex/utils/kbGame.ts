@@ -9,8 +9,7 @@ import {
   type QueryCtx,
   type MutationCtx,
   query,
-  mutation,
-  internalMutation
+  mutation
 } from '../_generated/server'
 import { getUserIdOrThrow } from '../utils/auth'
 
@@ -37,23 +36,6 @@ export const gameStateMutation = customMutation(mutation, {
   async input(ctx, { gameId }) {
     return {
       ctx: await getGameState(ctx, gameId),
-      args: {}
-    }
-  }
-})
-
-export const aiMutation = customMutation(internalMutation, {
-  // could add aiId: v.string() later when I have to deal with multiple ais?
-  args: { gameId: v.id('kb_games') },
-  async input(ctx, { gameId }) {
-    return {
-      ctx: {
-        gameState: await GameStateWithDb.get(
-          ctx,
-          process.env.AI_1_USER_ID!,
-          gameId
-        )
-      },
       args: {}
     }
   }

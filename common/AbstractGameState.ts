@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/consistent-type-definitions */
 
-import { getRandomDice } from './random'
-import { getTotalScore } from './score'
+import { type PlayerOptions, type Player, type VoteType } from './Player'
 
 export type BoType = 'free_play' | '1' | '3' | '5'
 export type Difficulty = 'easy' | 'medium' | 'hard' | null
-export type VoteType = 'rematch' | 'continue' | null
 
 export type Game = {
   readonly _id: string // convex system field
@@ -16,15 +14,7 @@ export type Game = {
   modificationTime: number
 }
 
-export type Player = {
-  userId: string
-  gameId: string
-  board: number[][]
-  score: number
-  voteFor: VoteType
-  dieToPlay: number | null
-  modificationTime: number
-}
+export type PlayerGeneratorOptions = Pick<PlayerOptions, 'gameId' | 'userId'>
 
 export type GameStateOptions<TGame extends Game, TPlayer extends Player> = {
   /** game may not exist, as when creating a new game */
@@ -69,7 +59,7 @@ export abstract class AbstractGameState<
     this.history = history
   }
 
-  // accessors and state describers
+  // #region public accessors and state describers
 
   public get gameId() {
     return this.game._id
@@ -107,37 +97,8 @@ export abstract class AbstractGameState<
 
   public get hasRoundEnded() {
     return (
-      this.game.status === 'finished' ||
-      this.players.some((p) => this.IsBoardFull(p.board))
+      this.game.status === 'finished' || this.players.some((p) => p.IsBoardFull)
     )
-  }
-
-  public get hasGameEnded() {
-    if (this.game.boType === 'free_play') {
-      return this.hasRoundEnded
-    }
-    const numberOfRounds = Number(this.game.boType)
-    const playedRounds = this.history.filter(
-      (game) => game.roundWinner !== null && game.roundWinner !== 'draw'
-    )
-    // history doesn't take in account the current game
-    return this.hasRoundEnded && playedRounds.length + 1 === numberOfRounds
-  }
-
-  public get isWaiting() {
-    return this.game.status === 'waiting'
-  }
-
-  public get isOngoing() {
-    return this.game.status === 'playing'
-  }
-
-  public get isAgainstAi() {
-    return this.game.difficulty !== null
-  }
-
-  public get nextPlayerUserId() {
-    return this.players.find((player) => player.dieToPlay !== null)?.userId
   }
 
   public get roundWinner() {
@@ -157,6 +118,20 @@ export abstract class AbstractGameState<
       : this.opponent
   }
 
+  public get hasGameEnded() {
+    if (this.game.boType === 'free_play') {
+      return this.hasRoundEnded
+    }
+
+    const numberOfRounds = Number(this.game.boType)
+    const maxWin = Math.ceil(numberOfRounds / 2)
+    const scores = this.getHistoryScores()
+    const highestScore = Math.max(scores.currentPlayer, scores.opponent)
+    const maxScoreReached = highestScore === maxWin
+
+    return this.hasRoundEnded && maxScoreReached
+  }
+
   public get gameWinner() {
     if (
       !this.hasGameEnded ||
@@ -165,27 +140,39 @@ export abstract class AbstractGameState<
     )
       return null
 
-    const scores = this.history.reduce(
-      (acc, curr) => {
-        if (curr.roundWinner === null && curr.roundWinner === 'draw') return acc
-        if (curr.roundWinner === curr.currentPlayer) acc.currentPlayer++
-        if (curr.roundWinner === curr.opponent) acc.opponent++
-        return acc
-      },
-      { currentPlayer: 0, opponent: 0 }
-    )
+    const scores = this.getHistoryScores()
 
     return scores.currentPlayer > scores.opponent
       ? this.currentPlayer
       : this.opponent
   }
 
+  public get isWaiting() {
+    return this.game.status === 'waiting'
+  }
+
+  public get isOngoing() {
+    return this.game.status === 'playing'
+  }
+
+  public get isAgainstAi() {
+    return this.game.difficulty !== null
+  }
+
+  public get nextPlayerUserId() {
+    return this.players.find((player) => player.shouldPlayNext)?.userId
+  }
+
   public get toJson() {
     return {
       game: this.game,
-      players: this.players
+      players: this.players.map((p) => p.toJson)
     }
   }
+
+  // #endregion public accessors and state describers
+
+  // #region internal accessors
 
   protected get shouldStartGame() {
     return this.players.length === 2
@@ -199,7 +186,9 @@ export abstract class AbstractGameState<
     return this.currentPlayer!.voteFor === this.opponent!.voteFor
   }
 
-  // actions
+  // #endregion internal accessors
+
+  // #region public actions
 
   public play(column: number) {
     if (!this.isOngoing) {
@@ -215,25 +204,10 @@ export abstract class AbstractGameState<
       )
     }
 
-    const dieToPlay = this.currentPlayer.dieToPlay
-    if (dieToPlay === null) {
-      throw new Error("It is not player's turn")
-    }
-
-    if (this.currentPlayer.board[column].length === 3) {
-      throw new Error('Cannot place a die in a full column')
-    }
-
-    this.currentPlayer.board[column].push(dieToPlay)
-    this.currentPlayer.score = getTotalScore(this.currentPlayer.board)
-
-    this.opponent.board[column] = this.opponent.board[column].filter(
-      (die) => die !== dieToPlay
-    )
-    this.opponent.score = getTotalScore(this.currentPlayer.board)
-
-    this.currentPlayer.dieToPlay = null
-    this.opponent.dieToPlay = getRandomDice()
+    const placedDie = this.currentPlayer.dieToPlay!
+    this.currentPlayer.addDice(column)
+    this.opponent.removeDice(placedDie, column)
+    this.opponent.giveDie()
 
     if (this.hasRoundEnded) {
       this.game.status = 'finished'
@@ -250,59 +224,37 @@ export abstract class AbstractGameState<
   }
 
   public voteFor(voteType: VoteType) {
-    const modificationTime = new Date().valueOf()
-    this.currentPlayer!.voteFor = voteType
-    this.currentPlayer!.modificationTime = modificationTime
+    this.currentPlayer!.voteFor(voteType)
 
     // why not do the same thing as join?
     if (this.isAgainstAi) {
-      this.opponent!.voteFor = voteType
-      this.opponent!.modificationTime = modificationTime
+      this.opponent!.voteFor(voteType)
     }
 
     if (this.shouldProceedWithVote) {
-      const nextGameState = this.generateNextGameState(this.currentUserId)
-
-      // protected properties can be accessed from instances of the same class
-      // ported to TS from C#: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/protected#example-2
-      nextGameState.game.boType =
-        voteType === 'rematch' ? this.game.boType : 'free_play'
-      nextGameState.game.difficulty = this.game.difficulty
-      nextGameState.addOpponent(this.opponent!.userId)
-
-      this.nextGameState = nextGameState
+      this.setupNextGameState(voteType)
     }
   }
 
-  // Utils
+  // #endregion public actions
+
+  // #region internal utils
 
   protected addPlayer(userId: string) {
     if (!this.canUserJoin(userId)) return
 
     const date = new Date()
 
-    const player = this.generatePlayer()
-    player.userId = userId
-    player.gameId = this.gameId
-    player.modificationTime = date.valueOf()
+    const player = this.generatePlayer({ userId, gameId: this.gameId })
     this.players.push(player)
 
     if (this.shouldStartGame) {
-      this.setFirstPlayer()
+      const firstPlayerIndex = Math.round(Math.random())
+      this.players[firstPlayerIndex].giveDie()
+
       this.game.status = 'playing'
       this.game.modificationTime = date.valueOf()
     }
-  }
-
-  protected setFirstPlayer() {
-    if (this.players.length !== 2) {
-      throw new Error('Game must have 2 players')
-    }
-
-    const firstPlayerIndex = Math.round(Math.random())
-    const dieToPlay = getRandomDice()
-
-    this.players[firstPlayerIndex].dieToPlay = dieToPlay
   }
 
   protected canUserJoin(userId: string) {
@@ -317,20 +269,55 @@ export abstract class AbstractGameState<
     return board.flat().length === 9
   }
 
-  // internal generators
+  // takes the current game in account
+  protected getHistoryScores() {
+    return this.history.concat(this).reduce(
+      (acc, curr) => {
+        if (curr.roundWinner === null && curr.roundWinner === 'draw') return acc
+        if (curr.roundWinner === curr.currentPlayer) acc.currentPlayer++
+        if (curr.roundWinner === curr.opponent) acc.opponent++
+        return acc
+      },
+      { currentPlayer: 0, opponent: 0 }
+    )
+  }
+
+  private setupNextGameState(voteType: VoteType) {
+    const nextGameState = this.generateNextGameState(this.currentUserId)
+
+    // protected properties can be accessed from instances of the same class
+    // ported to TS from C#: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/protected#example-2
+    nextGameState.game.difficulty = this.game.difficulty
+    nextGameState.join()
+    nextGameState.addOpponent(this.opponent!.userId)
+
+    this.nextGameState = nextGameState
+
+    // end of a BO game, we don't want to keep the same base game id
+    if (this.hasGameEnded && this.boType !== 'free_play') {
+      nextGameState.game.boType =
+        voteType === 'rematch' ? this.game.boType : 'free_play'
+      return
+    }
+
+    nextGameState.game.boType = this.game.boType
+    nextGameState.game.baseGameId = this.gameId
+  }
+
+  // #endregion internal utils
+
+  // #region internal generators
   // this pattern ensures that the base class can generate players, games and
   // new state while using generics so that each sub-class can have different
   // sub types
 
-  protected abstract generatePlayer(): TPlayer
+  protected abstract generatePlayer(options: PlayerGeneratorOptions): TPlayer
 
   protected abstract generateGame(): TGame
 
   protected abstract generateNextGameState(
     userId: string
   ): AbstractGameState<TGame, TPlayer>
-}
 
-// // #region
-// export default ClientGameState
-// // #endregion
+  // #endregion internal generators
+}

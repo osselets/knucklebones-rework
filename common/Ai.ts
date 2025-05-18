@@ -1,8 +1,5 @@
-import {
-  type Game,
-  type AbstractGameState,
-  type Player
-} from './AbstractGameState'
+import { type Game, type AbstractGameState } from './AbstractGameState'
+import { type Player } from './Player'
 import { getMaxBy, getMinBy, sortBy } from './array'
 import { countDiceInColumn } from './count'
 import { getColumnScore } from './score'

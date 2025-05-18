@@ -26,7 +26,7 @@ export function useGameState() {
     if (gameStateData === undefined || session === null) {
       return null
     }
-    return new ClientGameState({
+    return ClientGameState.fromJson({
       ...gameStateData,
       userId: session.session.userId
     })

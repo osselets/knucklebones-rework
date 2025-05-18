@@ -1,75 +1,91 @@
 import { useTranslation } from 'react-i18next'
 import { PlayIcon } from '@heroicons/react/24/outline'
 import { t } from 'i18next'
+import { useConvexMutation } from '@convex-dev/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { api } from '~/convex/api'
+import { type Id } from '~/convex/dataModel'
 import { useGameState } from '~/hooks/useGame'
 import { type ClientGameState } from '~/new-common'
 import { useIsOnDesktop } from '../hooks/detectDevice'
 import { Button } from './Button'
-import { useGame, type InGameContext } from './GameContext'
 import { ShortcutModal } from './ShortcutModal'
 
-// function getWinMessage(gameState: ClientGameState) {
-//   if (!gameState.hasRoundEnded) {
-//     if (winner !== undefined) {
-//       const gameScope = outcome === 'round-ended' ? 'round' : 'game'
-//       const playerWin = winner.isPlayerOne ? 'you-win' : 'opponent-win'
-//       return t(`game.${gameScope}.${playerWin}` as const, {
-//         player: winner.inGameName,
-//         points: winner.score
-//       })
-//     }
-//     return t(outcome === 'round-ended' ? 'game.round.tie' : 'game.game.tie')
-//   }
-//   return ''
-// }
+function getWinMessage(gameState: ClientGameState) {
+  // not the end of the round
+  if (!gameState.hasRoundEnded || gameState.roundWinner === null) return ''
 
-interface VoteButtonProps extends Pick<InGameContext, 'boType' | 'outcome'> {
-  hasVoted: boolean
-  onRematch(): void
-  onContinue(): void
-  onContinueIndefinitely(): void
+  // round ended in a draw
+  if (gameState.roundWinner === 'draw') return t('game.round.tie')
+
+  // game ended with the round end
+  if (gameState.hasGameEnded && gameState.gameWinner !== null) {
+    const playerWin =
+      gameState.gameWinner === gameState.currentPlayer
+        ? 'you-win'
+        : 'opponent-win'
+    return t(`game.game.${playerWin}` as const, {
+      player: gameState.gameWinner.userId,
+      points: gameState.gameWinner.score
+    })
+  }
+
+  // not the end of the game
+  const playerWin =
+    gameState.roundWinner === gameState.currentPlayer
+      ? 'you-win'
+      : 'opponent-win'
+  return t(`game.round.${playerWin}` as const, {
+    player: gameState.roundWinner.userId,
+    points: gameState.roundWinner.score
+  })
 }
 
 function VoteButtons({ gameState }: { gameState: ClientGameState }) {
   const { t } = useTranslation()
+  const hasVoted = gameState.currentPlayer!.hasVoted
+  console.log(hasVoted, gameState.currentPlayer)
+
+  const { mutate } = useMutation({
+    mutationFn: useConvexMutation(api.kbGame.voteRematchGame)
+  })
 
   const onContinue = () => {
-    console.log('continue')
+    mutate({ gameId: gameState.gameId as Id<'kb_games'>, voteType: 'continue' })
   }
   const onContinueIndefinitely = () => {
-    console.log('continue free_play')
+    mutate({ gameId: gameState.gameId as Id<'kb_games'>, voteType: 'continue' })
   }
   const onRematch = () => {
-    console.log('rematch')
+    mutate({ gameId: gameState.gameId as Id<'kb_games'>, voteType: 'rematch' })
   }
 
-  return null
-  // if (boType !== 'free_play') {
-  //   if (outcome === 'round-ended') {
-  //     return (
-  //       <Button onClick={onContinue} disabled={hasVoted}>
-  //         {t('game.continue')}
-  //       </Button>
-  //     )
-  //   }
-  //   if (outcome === 'game-ended') {
-  //     return (
-  //       <div className='flex flex-col items-center gap-2 md:flex-row'>
-  //         <Button onClick={onRematch} disabled={hasVoted}>
-  //           {t('game.rematch')}
-  //         </Button>
-  //         <Button onClick={onContinueIndefinitely} disabled={hasVoted}>
-  //           {t('game.go-free-play')}
-  //         </Button>
-  //       </div>
-  //     )
-  //   }
-  // }
-  // return (
-  //   <Button onClick={onRematch} disabled={hasVoted}>
-  //     {t('game.rematch')}
-  //   </Button>
-  // )
+  if (gameState.boType !== 'free_play') {
+    if (gameState.hasRoundEnded) {
+      return (
+        <Button onClick={onContinue} disabled={hasVoted}>
+          {t('game.continue')}
+        </Button>
+      )
+    }
+    if (gameState.hasGameEnded) {
+      return (
+        <div className='flex flex-col items-center gap-2 md:flex-row'>
+          <Button onClick={onRematch} disabled={hasVoted}>
+            {t('game.rematch')}
+          </Button>
+          <Button onClick={onContinueIndefinitely} disabled={hasVoted}>
+            {t('game.go-free-play')}
+          </Button>
+        </div>
+      )
+    }
+  }
+  return (
+    <Button onClick={onRematch} disabled={hasVoted}>
+      {t('game.rematch')}
+    </Button>
+  )
 }
 
 export function GameOutcome() {
@@ -80,7 +96,7 @@ export function GameOutcome() {
   const hasCurrentPlayerVoted = gameState.currentPlayer!.voteFor !== undefined
   const hasOpponentVoted = gameState.opponent!.voteFor !== undefined
 
-  if (gameState.hasRoundEnded) {
+  if (!gameState.hasRoundEnded) {
     // On peut mettre un VS semi-transparent dans le fond de la partie
     // pour rappeler cet élément sans pour autant que ça prenne de l'espace dans
     // le layout.
@@ -89,7 +105,7 @@ export function GameOutcome() {
 
   const content = (
     <div className='grid justify-items-center gap-2 font-semibold'>
-      {/* <p>{getWinMessage({ outcome, winner })}</p> */}
+      <p>{getWinMessage(gameState)}</p>
 
       {!gameState.isSpectator && <VoteButtons gameState={gameState} />}
 

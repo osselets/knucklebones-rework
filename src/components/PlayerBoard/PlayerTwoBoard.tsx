@@ -3,13 +3,15 @@ import { PlayerBoard } from './Board'
 
 export function PlayerTwoBoard() {
   const gameState = useGameState()!
-  const opponent = gameState.opponent!
-  const isPlayerTurn = gameState.nextPlayerUserId === opponent.userId
+  const player = gameState.opponent!
+  const isPlayerTurn = gameState.nextPlayerUserId === player.userId
 
   return (
     <PlayerBoard
-      columns={opponent.board}
-      die={opponent.dieToPlay ?? undefined}
+      columns={player.board}
+      die={player.dieToPlay ?? undefined}
+      score={player.score}
+      scorePerColumn={player.scorePerColumn}
       position='top'
       canPlay={false}
       isPlayerTurn={isPlayerTurn}

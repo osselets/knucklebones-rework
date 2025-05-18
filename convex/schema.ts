@@ -43,12 +43,12 @@ export default defineSchema({
     // userId is comming from better-auth (external db), and it's a string
     userId: v.string(),
     gameId: v.id('kb_games'),
-    // default value '[[],[],[]]'
-    board: v.string(),
-    // default value 0
+    // number[][]; default value [[],[],[]]'
+    board: v.array(v.array(v.number())),
+    // derived from board, perhaps not needed; default value 0
     score: v.number(),
     // default value null
-    voteFor: voteType,
+    votedFor: voteType,
     // default value null
     dieToPlay: v.union(v.number(), v.null()),
     // same type and naming conventation as _creationTime
